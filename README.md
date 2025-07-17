@@ -120,4 +120,12 @@ MIT License © 2025
 
 GitHub: https://github.com/yourusername/DependaMate
 
+---
+---
+
+> **Disclaimer:**  
+> This project, **DependaMate**, is an independent tool developed by [TheTorjanCaptain](https://github.com/TheTorjanCaptain).  
+> It is **not affiliated with, endorsed by, or maintained by GitHub or the Dependabot team**.  
+> It simply uses GitHub's public API to help developers manage their security alerts more easily.
+
 
