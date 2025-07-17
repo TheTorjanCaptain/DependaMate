@@ -39,7 +39,7 @@ _______                                                                         
                                '-----------'                               |  |   |  |             \ \._,\ '/               \ \._,\ '/  |   /                      
                                                                            '--'   '--'              `--'  `"                 `--'  `"   `'-'                        
 
-DependaMate — Analyze, Group, and Report Dependabot Alerts Like a Pro
+DependaMate — Analyze, Group, and Report Dependabot Alerts Like a Pro!
 🔗 https://github.com/TheTorjanCaptain/DependaMate
 """
     print(banner)
