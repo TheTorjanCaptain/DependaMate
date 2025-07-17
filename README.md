@@ -121,7 +121,6 @@ MIT License © 2025
 GitHub: https://github.com/yourusername/DependaMate
 
 ---
----
 
 > **Disclaimer:**  
 > This project, **DependaMate**, is an independent tool developed by [TheTorjanCaptain](https://github.com/TheTorjanCaptain).  
