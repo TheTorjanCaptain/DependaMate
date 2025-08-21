@@ -4,12 +4,16 @@ import datetime
 import json
 import os
 import csv
+import random
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 # === CONFIGURATION ===
 TOOL_NAME = "DependaMate"
 TOOL_URL = "https://github.com/TheTorjanCaptain/DependaMate"
+FUNFACTS_URL = "https://raw.githubusercontent.com/TheTorjanCaptain/Vulnerable-POC-Syntax/main/CS_FunFacts.txt"
+EXIT_MESSAGE = "Patch well, hack less!"
 
 def get_github_token():
     return input("Enter your GitHub Token: ").strip()
@@ -29,7 +33,7 @@ def print_banner():
 _______                                                                               _______                                                                      
 \  ___ `'.         __.....__   _________   _...._            __.....__        _..._   \  ___ `'.             __  __   ___                           __.....__      
  ' |--.\  \    .-''         '. \        |.'      '-.     .-''         '.    .'     '.  ' |--.\  \           |  |/  `.'   `.                     .-''         '.    
- | |    \  '  /     .-''"'-.  `.\        .'```'.    '.  /     .-''"'-.  `. .   .-.   . | |    \  '          |   .-.  .-.   '              .|   /     .-''"'-.  `.  
+ | |    \  '  /     .-''"'-.  `.\        .'```
  | |     |  '/     /________\   \\      |       \     \/     /________\   \|  '   '  | | |     |  '    __   |  |  |  |  |  |    __      .' |_ /     /________\   \ 
  | |     |  ||                  | |     |        |    ||                  ||  |   |  | | |     |  | .:--.'. |  |  |  |  |  | .:--.'.  .'     ||                  | 
  | |     ' .'\    .-------------' |      \      /    . \    .-------------'|  |   |  | | |     ' .'/ |   \ ||  |  |  |  |  |/ |   \ |'--.  .-'\    .-------------' 
@@ -47,7 +51,7 @@ DependaMate — Analyze, Group, and Report Dependabot Alerts Like a Pro!
 def get_date_input(prompt_text):
     while True:
         try:
-            date_str = input(f"{prompt_text} (e.g., 2022-01-01): ").strip()
+            date_str = input(f"{prompt_text} (e.g., 2022-12-30): ").strip()
             return datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
             print("❌ Invalid date format. Please use YYYY-MM-DD.\n")
@@ -58,6 +62,18 @@ def daterange(start_date, end_date, step_months=1):
         next_month = date + datetime.timedelta(days=step_months * 31)
         yield (date, min(next_month, end_date))
         date = next_month
+
+def print_random_funfact():
+    try:
+        response = requests.get(FUNFACTS_URL, timeout=5)
+        response.raise_for_status()
+        facts = response.text.strip().splitlines()
+        if facts:
+            fact = random.choice(facts)
+            print(f"\n💡 Cybersecurity Fun Fact: {fact}\n")
+    except Exception:
+        # Ignore failure silently
+        pass
 
 def fetch_dependabot_prs_between_dates(org, start_date, end_date, headers, state):
     all_prs = []
@@ -79,7 +95,8 @@ def fetch_dependabot_prs_between_dates(org, start_date, end_date, headers, state
         response = requests.get(url, headers=headers)
 
         if response.status_code == 403:
-            print(f"⏳ Rate limited. Sleeping 2 minutes...")
+            print("⏳ Rate limited. Sleeping 2 minutes...")
+            print_random_funfact()
             time.sleep(120)
             continue
         elif response.status_code != 200:
@@ -109,7 +126,7 @@ def group_by_repo(prs):
         if repo_url:
             repo_name = repo_url.split("/")[-1]
         else:
-            repo_name = pr["html_url"].split("/")[4]
+            repo_name = pr["html_url"].split("/")[1]
         grouped[repo_name].append(pr)
     print(f"Grouped into {len(grouped)} repositories")
     return grouped
@@ -163,39 +180,84 @@ def save_html(grouped_data, path):
             f.write("</ul>")
         f.write("</body></html>")
 
+def prompt_cron_job():
+    print("\nDo you want to schedule this task to run automatically?")
+    print("Options:")
+    print("  1. Daily")
+    print("  2. Weekly")
+    print("  3. Monthly")
+    print("  4. No, thanks")
+    choice = input("Enter choice [1-4]: ").strip()
+
+    if choice == "1":
+        schedule = "daily"
+    elif choice == "2":
+        schedule = "weekly"
+    elif choice == "3":
+        schedule = "monthly"
+    else:
+        print("No cron job created. You can run manually anytime.")
+        print(f"\n\n{EXIT_MESSAGE}\n")
+        return
+
+    script_path = os.path.abspath(__file__)
+    if os.name == 'nt':  # Windows
+        print("\nTo schedule this script in Windows Task Scheduler:")
+        print(f"  Use Task Scheduler to run:\n    python {script_path}\n  at your chosen interval ({schedule}).")
+    else:
+        cron_expr = {
+            "daily": "0 9 * * *",
+            "weekly": "0 9 * * 1",
+            "monthly": "0 9 1 * *"
+        }[schedule]
+        print("\nAdd this line to your crontab (run `crontab -e`):")
+        print(f"{cron_expr} python3 {script_path} # DependaMate {schedule} run")
+
+    print("\nRemember to configure your environment variables (GITHUB_TOKEN, GITHUB_ORG) for unattended runs.\n")
+
+def fetch_and_save_reports():
+    try:
+        print_banner()
+        GITHUB_TOKEN = get_github_token()
+        headers = {
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github+json"
+        }
+
+        ORG_NAME = get_org_name()
+        PR_STATE = get_pr_state()
+        START_DATE = get_date_input("Enter START DATE")
+        END_DATE = get_date_input("Enter END DATE")
+
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        output_dir = Path(f"dependabot_reports_{timestamp}_{PR_STATE}")
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        final_prs = []
+        for start, end in daterange(START_DATE, END_DATE, step_months=1):
+            prs = fetch_dependabot_prs_between_dates(ORG_NAME, start, end, headers, PR_STATE)
+            final_prs.extend(prs)
+            time.sleep(1)
+
+        if not final_prs:
+            print("\n⚠️ No Dependabot PRs found with the given filters. Reports will not be generated.")
+            return
+
+        grouped = group_by_repo(final_prs)
+
+        print(f"\n📁 Saving reports to folder: {output_dir}/")
+        save_json(grouped, output_dir / f"dependabot_prs_{PR_STATE}.json")
+        save_csv(grouped, output_dir / f"dependabot_prs_{PR_STATE}.csv")
+        save_markdown(grouped, output_dir / f"dependabot_prs_{PR_STATE}.md")
+        save_html(grouped, output_dir / f"dependabot_prs_{PR_STATE}.html")
+
+        print(f"\n✅ Done! Total PRs fetched: {len(final_prs)}")
+
+        prompt_cron_job()
+
+    except KeyboardInterrupt:
+        print(f"\n\n{EXIT_MESSAGE}\n")
+        sys.exit(0)
+
 if __name__ == "__main__":
-    print_banner()
-    GITHUB_TOKEN = get_github_token()
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json"
-    }
-
-    ORG_NAME = get_org_name()
-    PR_STATE = get_pr_state()
-    START_DATE = get_date_input("Enter START DATE")
-    END_DATE = get_date_input("Enter END DATE")
-
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_dir = Path(f"dependabot_reports_{timestamp}_{PR_STATE}")
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    final_prs = []
-    for start, end in daterange(START_DATE, END_DATE, step_months=1):
-        prs = fetch_dependabot_prs_between_dates(ORG_NAME, start, end, headers, PR_STATE)
-        final_prs.extend(prs)
-        time.sleep(1)
-
-    if not final_prs:
-        print("\n⚠️ No Dependabot PRs found with the given filters. Reports will not be generated.")
-        exit(0)
-
-    grouped = group_by_repo(final_prs)
-
-    print(f"\n📁 Saving reports to folder: {output_dir}/")
-    save_json(grouped, output_dir / f"dependabot_prs_{PR_STATE}.json")
-    save_csv(grouped, output_dir / f"dependabot_prs_{PR_STATE}.csv")
-    save_markdown(grouped, output_dir / f"dependabot_prs_{PR_STATE}.md")
-    save_html(grouped, output_dir / f"dependabot_prs_{PR_STATE}.html")
-
-    print(f"\n✅ Done! Total PRs fetched: {len(final_prs)}")
+    fetch_and_save_reports()
