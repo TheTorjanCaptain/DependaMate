@@ -95,11 +95,9 @@ Once you have the token ready and authorized, you can use it with DependaMate to
 ## 💡 Roadmap
 
 - Export grouping by repo ✅ 
-
-- Scheduler for periodic fetching
-
+- CRON Jobs ✅
+- Fun Facts ✅
 - Slack/Discord alerting
-
 - PyPI packaging
 
 ---
