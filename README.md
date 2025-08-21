@@ -32,7 +32,7 @@ git clone https://github.com/yourusername/DependaMate.git
 cd DependaMate
 python3 Dependamate.py
 ```
-
+Note: If you have MFA/SSO setup make sure to authorize it after creation of the Github token.
 ---
 
 ## 🛠 Requirements
